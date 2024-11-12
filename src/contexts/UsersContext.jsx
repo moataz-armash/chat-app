@@ -16,7 +16,7 @@ export const UsersProvider = ({ children }) => {
   useEffect(() => {
     const fetchUsernames = async () => {
       try {
-        const response = await axios.get("/usernames");
+        const response = await axios.get("http://localhost:5000/api/usernames");
         setUsernames(response.data);
         localStorage.setItem("contacts", JSON.stringify(response.data));
       } catch (error) {
@@ -31,7 +31,7 @@ export const UsersProvider = ({ children }) => {
 
   const addUser = async (username) => {
     try {
-      const response = await axios.post("/usernames/check", { username });
+      const response = await axios.post("http://localhost:5000/api/usernames/check", { username });
       if (response.data.exists) {
         const updatedUsernames = [...usernames, { username }];
         setUsernames(updatedUsernames);

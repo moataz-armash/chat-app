@@ -32,7 +32,7 @@ const ChatApp = () => {
   const [username, setUsername] = useState("");
   const { usernames, addUser } = useUsers();
   const [errorMessage, setErrorMessage] = useState("");
-  const loggedInUsername = localStorage.getItem("username");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
@@ -58,15 +58,6 @@ const ChatApp = () => {
   };
 
   const handleAddUsername = async () => {
-    if (username === loggedInUsername) {
-      setErrorMessage("You cannot add yourself to the contacts.");
-      return;
-    }
-    
-    if (usernames.some(user => user.username === username)) {
-      setErrorMessage("This user is already in your contacts.");
-      return;
-    }
     try {
       await addUser(username);
       setUsername("");
@@ -76,6 +67,15 @@ const ChatApp = () => {
       setErrorMessage(error.message);
     }
   };
+
+  const handleSearchChange = (event) => {
+    setSearchQuery(event.target.value);
+  };
+
+  const filteredUsers = usernames.filter((user) => {
+    const username = typeof user === "string" ? user : user.username; // Adjust this line based on the actual structure of user objects
+    return username.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   return (
     <Box display="flex" height="100vh" bgcolor="#f0f2f5">
@@ -145,6 +145,8 @@ const ChatApp = () => {
           variant="outlined"
           placeholder="Search"
           fullWidth
+          value={searchQuery}
+          onChange={handleSearchChange}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -155,7 +157,7 @@ const ChatApp = () => {
         />
         <List>
           {/* List of contacts */}
-          {usernames?.map((contact) => (
+          {filteredUsers?.map((contact) => (
             <ListItem button key={contact}>
               <ListItemAvatar>
                 <Avatar>{contact[0]}</Avatar>
