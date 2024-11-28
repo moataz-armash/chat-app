@@ -21,82 +21,160 @@ import { InputAdornment } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import axios from "axios";
 import { useUsers } from "./contexts/UsersContext";
-const ChatApp = () => {
-  const [messages, setMessages] = useState([
-    { sender: "Alice", text: "Hi, how are you?", fromMe: false },
-    { sender: "You", text: "I’m good! How about you?", fromMe: true },
-  ]);
-  const [newMessage, setNewMessage] = useState("");
 
+const ChatApp = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [username, setUsername] = useState("");
-  const { usernames, addUser } = useUsers();
-  const [errorMessage, setErrorMessage] = useState("");
+
+  const [messages, setMessages] = useState([]);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true); // To check if more messages are available
+  const [newMessage, setNewMessage] = useState("");
+  const [chatId, setChatId] = useState(null);
+  const [selectedContact, setSelectedContact] = useState(null);
+
+  const {
+    usernames,
+    addUser,
+    loggedInUser,
+    deleteUser,
+    socket,
+    errorMessage,
+    setErrorMessage,
+  } = useUsers();
+
   const [searchQuery, setSearchQuery] = useState("");
 
-  const handleOpenModal = () => {
-    setIsModalOpen(true);
+  useEffect(() => {
+    // Listen for incoming messages
+    if (socket) {
+      socket.on("receiveMessage", (message) => {
+        setMessages((prevMessages) => [...prevMessages, message]);
+      });
+    }
+    return () => {
+      if (socket) {
+        socket.off("receiveMessage");
+      }
+    };
+  }, [socket]);
+
+  const fetchMessages = async () => {
+    try {
+      const response = await axios.get(
+        `http://localhost:5000/api/6748b76acc9812678d7a4f4d/messages`
+      );
+
+      const fetchedMessages = response.data;
+      if (fetchedMessages.length === 0) {
+        setHasMoreMessages(false); // No more messages to load
+      } else {
+        setMessages((prevMessages) => [...fetchedMessages, ...prevMessages]);
+      }
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      setErrorMessage("Unable to fetch messages.");
+    }
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setUsername("");
-  };
-
-  const handleUsernameChange = (e) => {
-    setUsername(e.target.value);
-  };
-
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (newMessage.trim()) {
-      setMessages([
-        ...messages,
-        { sender: "You", text: newMessage, fromMe: true },
-      ]);
+      const message = {
+        sender: { username: loggedInUser.username, _id: loggedInUser.userId },
+        content: newMessage,
+      };
+
+      // Optimistically add the message to the UI
+      setMessages((prevMessages) => [...prevMessages, message]);
       setNewMessage("");
+
+      try {
+        // Send the message to the server
+        await axios.post("http://localhost:5000/api/message", {
+          chatId,
+          senderId: loggedInUser.userId,
+          content: newMessage,
+        });
+
+        socket.emit("sendMessage", message); // Send via WebSocket
+      } catch (error) {
+        console.error("Error sending message:", error);
+        setErrorMessage("Unable to send message.");
+      }
+    }
+  };
+
+  const handleOpenModal = () => setIsModalOpen(true);
+  const handleCloseModal = () => setIsModalOpen(false);
+  const handleUsernameChange = (e) => setUsername(e.target.value);
+
+  const handleContactClick = async (contact) => {
+    console.log("Selected contact:", contact.username);
+
+    try {
+      // Step 1: Start or retrieve a chat
+      const response = await axios.post("http://localhost:5000/api/start", {
+        userId: loggedInUser.userId,
+        otherUserId: contact._id,
+      });
+      // console.log("_id: " + response.data._id + "response: " + response.data);
+      const { _id: chatId } = response.data;
+      setChatId(chatId);
+      setSelectedContact(contact);
+
+      // Step 2: Fetch the first page of messages
+      setMessages([]); // Clear previous messages
+      setHasMoreMessages(true); // Reset load more state
+      await fetchMessages(1); // Fetch the first page
+    } catch (error) {
+      console.error("Error starting or retrieving the chat:", error);
+      setErrorMessage("Unable to start or retrieve the chat.");
     }
   };
 
   const handleAddUsername = async () => {
     try {
-      await addUser(username);
-      setUsername("");
-      setErrorMessage("");
-      setIsModalOpen(false);
+      await addUser(username); // Try to add the username
+      setUsername(""); // Clear input field
+      setErrorMessage(""); // Clear any error messages
+      setIsModalOpen(false); // Close modal
     } catch (error) {
-      setErrorMessage(error.message);
+      // Handle specific errors returned by addUser or unexpected issues
+      if (error.status === 404) {
+        // User not found in the database
+        setErrorMessage("User not found in the database.");
+      } else if (error.status === 200) {
+        // User is already in participants or custom message from addUser
+        setErrorMessage(
+          error.message || "This user is already in your participants."
+        );
+      } else if (error.status === 400) {
+        // Invalid username format
+        setErrorMessage("Invalid username. Please provide a valid one.");
+      } else {
+        // Handle any unexpected errors
+        setErrorMessage(
+          "An unexpected error occurred. Please try again later."
+        );
+      }
     }
   };
 
-  const handleSearchChange = (event) => {
-    setSearchQuery(event.target.value);
-  };
-
-  const filteredUsers = usernames.filter((user) => {
-    const username = typeof user === "string" ? user : user.username; // Adjust this line based on the actual structure of user objects
-    return username.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  const filteredUsers = usernames.filter((user) =>
+    user.username.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <Box display="flex" height="100vh" bgcolor="#f0f2f5">
       {/* Sidebar */}
-      <Box
-        width="30%"
-        bgcolor="#ffffff"
-        borderRight="1px solid #e0e0e0"
-        display="flex"
-        flexDirection="column"
-      >
+      <Box width="30%" bgcolor="#ffffff" borderRight="1px solid #e0e0e0">
         <Box
           p={2}
           borderBottom="1px solid #e0e0e0"
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
         >
-          <Typography variant="h6">Chats</Typography>
+          <Typography variant="h6">{loggedInUser.username}'s Chats</Typography>
           <Button
             variant="contained"
             sx={{ backgroundColor: "#5F54FD" }}
@@ -134,19 +212,13 @@ const ChatApp = () => {
               </Button>
             </DialogActions>
           </Dialog>
-          <Button
-            variant="contained"
-            sx={{ width: "25%", backgroundColor: "#5F54FD" }}
-          >
-            <AddIcon sx={{ marginRight: "8px" }} /> Group
-          </Button>
         </Box>
         <TextField
           variant="outlined"
           placeholder="Search"
           fullWidth
           value={searchQuery}
-          onChange={handleSearchChange}
+          onChange={(e) => setSearchQuery(e.target.value)}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -156,11 +228,14 @@ const ChatApp = () => {
           }}
         />
         <List>
-          {/* List of contacts */}
-          {filteredUsers?.map((contact) => (
-            <ListItem button key={contact}>
+          {filteredUsers.map((contact) => (
+            <ListItem
+              button
+              key={contact.username}
+              onClick={() => handleContactClick(contact)}
+            >
               <ListItemAvatar>
-                <Avatar>{contact[0]}</Avatar>
+                <Avatar>{contact.username[0]}</Avatar>
               </ListItemAvatar>
               <ListItemText primary={contact.username} />
             </ListItem>
@@ -172,7 +247,9 @@ const ChatApp = () => {
       <Box flex="1" display="flex" flexDirection="column">
         {/* Chat Header */}
         <Box p={2} borderBottom="1px solid #e0e0e0" bgcolor="#ffffff">
-          <Typography variant="h6">Chat with Alice</Typography>
+          <Typography variant="h6">
+            Chat with {selectedContact?.username || "Unknown"}
+          </Typography>
         </Box>
 
         {/* Messages */}
@@ -180,47 +257,40 @@ const ChatApp = () => {
           {messages.map((message, index) => (
             <Paper
               key={index}
-              style={{
-                maxWidth: "70%",
-                margin: message.fromMe ? "8px auto 8px 0" : "8px 0 8px auto",
-                padding: "8px 12px",
-                backgroundColor: message.fromMe ? "#DCF8C6" : "#ffffff",
-                alignSelf: message.fromMe ? "flex-end" : "flex-start",
+              sx={{
+                padding: 1,
+                marginBottom: 2,
+                alignSelf:
+                  message.sender._id === loggedInUser.userId
+                    ? "flex-end"
+                    : "flex-start",
+                backgroundColor:
+                  message.sender._id === loggedInUser.userId
+                    ? "#DCF8C6"
+                    : "#FFFFFF",
               }}
             >
-              <Typography variant="body1">{message.text}</Typography>
-              <Typography
-                variant="caption"
-                align="right"
-                display="block"
-                color="textSecondary"
-              >
-                {message.fromMe ? "You" : message.sender}
+              <Typography variant="body1">{message.content}</Typography>
+              <Typography variant="caption" color="textSecondary">
+                {message.sender.username}
               </Typography>
             </Paper>
           ))}
         </Box>
 
         {/* Message Input */}
-        <Box
-          display="flex"
-          p={2}
-          bgcolor="#ffffff"
-          borderTop="1px solid #e0e0e0"
-        >
+        <Box display="flex" p={2} borderTop="1px solid #e0e0e0">
           <TextField
             fullWidth
-            variant="outlined"
-            placeholder="Type a message"
+            placeholder="Type a message..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
           />
           <Button
-            onClick={handleSendMessage}
             variant="contained"
             color="primary"
-            style={{ marginLeft: "8px" }}
+            onClick={handleSendMessage}
           >
             Send
           </Button>
@@ -228,15 +298,6 @@ const ChatApp = () => {
       </Box>
     </Box>
   );
-};
-
-const saveContactsToLocalStorage = (contacts) => {
-  localStorage.setItem("contacts", JSON.stringify(contacts));
-};
-
-const getContactsFromLocalStorage = () => {
-  const contacts = localStorage.getItem("contacts");
-  return contacts ? JSON.parse(contacts) : [];
 };
 
 export default ChatApp;
