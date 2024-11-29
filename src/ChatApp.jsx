@@ -28,7 +28,8 @@ const ChatApp = () => {
   const [username, setUsername] = useState("");
 
   const [messages, setMessages] = useState([]);
-  const [hasMoreMessages, setHasMoreMessages] = useState(true); // To check if more messages are available
+  const [page, setPage] = useState(1);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [newMessage, setNewMessage] = useState("");
   const [chatId, setChatId] = useState(null);
   const [selectedContact, setSelectedContact] = useState(null);
@@ -59,17 +60,35 @@ const ChatApp = () => {
     };
   }, [socket]);
 
-  const fetchMessages = async () => {
+  useEffect(() => {
+    if (chatId) {
+      setPage(1); // Reset to first page
+      setHasMoreMessages(true); // Reset pagination state
+      setMessages([]); // Clear previous messages
+      fetchMessages(chatId);
+    }
+  }, [chatId]);
+
+  const fetchMessages = async (chatId) => {
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/6748b76acc9812678d7a4f4d/messages`
+        `http://localhost:5000/api/${chatId}/messages?page=${page}&limit=20`
       );
 
       const fetchedMessages = response.data;
+
       if (fetchedMessages.length === 0) {
-        setHasMoreMessages(false); // No more messages to load
+        setHasMoreMessages(false); // No more messages
       } else {
-        setMessages((prevMessages) => [...fetchedMessages, ...prevMessages]);
+        // Avoid duplicates
+        setMessages((prevMessages) => {
+          const messageIds = prevMessages.map((msg) => msg._id);
+          const newMessages = fetchedMessages.filter(
+            (msg) => !messageIds.includes(msg._id)
+          );
+          return [...newMessages, ...prevMessages];
+        });
+        setPage((prevPage) => prevPage + 1); // Increment page
       }
     } catch (error) {
       console.error("Error fetching messages:", error);
@@ -82,6 +101,7 @@ const ChatApp = () => {
       const message = {
         sender: { username: loggedInUser.username, _id: loggedInUser.userId },
         content: newMessage,
+        timestamp: new Date().toISOString(), // Add current timestamp
       };
 
       // Optimistically add the message to the UI
@@ -109,15 +129,17 @@ const ChatApp = () => {
   const handleUsernameChange = (e) => setUsername(e.target.value);
 
   const handleContactClick = async (contact) => {
-    console.log("Selected contact:", loggedInUser.userId);
+    console.log("loggedInUser:", loggedInUser.userId);
+    console.log("Selected contact:", contact._id);
 
     try {
       // Step 1: Start or retrieve a chat
+
       const response = await axios.post("http://localhost:5000/api/start", {
         userId: loggedInUser.userId,
         otherUserId: contact._id,
       });
-      // console.log("_id: " + response.data._id + "response: " + response.data);
+      console.log("_id: " + response.data._id);
       const { _id: chatId } = response.data;
       setChatId(chatId);
       setSelectedContact(contact);
@@ -125,7 +147,7 @@ const ChatApp = () => {
       // Step 2: Fetch the first page of messages
       setMessages([]); // Clear previous messages
       setHasMoreMessages(true); // Reset load more state
-      await fetchMessages(1); // Fetch the first page
+      await fetchMessages(chatId); // Fetch the first page
     } catch (error) {
       console.error("Error starting or retrieving the chat:", error);
       setErrorMessage("Unable to start or retrieve the chat.");

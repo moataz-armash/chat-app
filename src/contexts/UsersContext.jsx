@@ -50,63 +50,89 @@ export const UsersProvider = ({ children }) => {
   const addUser = async (username) => {
     try {
       // Step 1: Check if the user exists in the database
-      const response = await axios.post("http://localhost:5000/api/usernames/check", { username });
-  
+      const response = await axios.post(
+        "http://localhost:5000/api/usernames/check",
+        { username }
+      );
+      const { userId } = response.data;
+
       if (!response.data.exists) {
         // If the user does not exist in the database, return an error
-        throw { response: { status: 404, message: "User not found in the database." } };
+        throw {
+          response: { status: 404, message: "User not found in the database." },
+        };
       }
-  
+
       // Step 2: Check if the user is already in the participants list
-      const isAlreadyAdded = usernames.some((user) => user.username === username);
+      const isAlreadyAdded = usernames.some(
+        (user) => user.username === username
+      );
       if (isAlreadyAdded) {
-        throw { response: { status: 200, message: "Username is already in your participants." } };
+        throw {
+          response: {
+            status: 200,
+            message: "Username is already in your participants.",
+          },
+        };
       }
-  
+
       // Step 3: Add the user to the participants list
-      const updatedUsernames = [...usernames, { username }];
+      const updatedUsernames = [
+        ...usernames,
+        { _id: userId, username: username },
+      ];
       setUsernames(updatedUsernames);
       localStorage.setItem("contacts", JSON.stringify(updatedUsernames));
-  
+
       return { success: true }; // Return success status
     } catch (error) {
       console.error("Error in addUser:", error);
-  
+
       // Re-throw error to let the calling function handle it
       throw error.response || new Error("An unexpected error occurred.");
     }
   };
-  
 
   const deleteUser = async (username) => {
     try {
       // Check if the user exists in the participants list
       const userExists = usernames.some((user) => user.username === username);
-  
+
       if (!userExists) {
-        throw { response: { status: 404, message: "User not found in participants." } };
+        throw {
+          response: { status: 404, message: "User not found in participants." },
+        };
       }
-  
+
       // Remove the user from the participants list
-      const updatedUsernames = usernames.filter((user) => user.username !== username);
+      const updatedUsernames = usernames.filter(
+        (user) => user.username !== username
+      );
       setUsernames(updatedUsernames);
       localStorage.setItem("contacts", JSON.stringify(updatedUsernames));
-  
+
       return { success: true }; // Success status
     } catch (error) {
       console.error("Error in deleteUser:", error);
-  
+
       // Re-throw error for the caller to handle
       throw error.response || new Error("An unexpected error occurred.");
     }
   };
-  
-  
-
-  
 
   return (
-    <UsersContext.Provider value={{ usernames, addUser, deleteUser, setUsernames,loggedInUser, socket,errorMessage, setErrorMessage }}>
+    <UsersContext.Provider
+      value={{
+        usernames,
+        addUser,
+        deleteUser,
+        setUsernames,
+        loggedInUser,
+        socket,
+        errorMessage,
+        setErrorMessage,
+      }}
+    >
       {children}
     </UsersContext.Provider>
   );
