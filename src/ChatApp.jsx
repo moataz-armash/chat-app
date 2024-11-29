@@ -16,6 +16,7 @@ import {
   DialogTitle,
   TextField,
 } from "@mui/material";
+import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import { InputAdornment } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
@@ -108,7 +109,7 @@ const ChatApp = () => {
   const handleUsernameChange = (e) => setUsername(e.target.value);
 
   const handleContactClick = async (contact) => {
-    console.log("Selected contact:", contact.username);
+    console.log("Selected contact:", loggedInUser.userId);
 
     try {
       // Step 1: Start or retrieve a chat
@@ -157,6 +158,35 @@ const ChatApp = () => {
         );
       }
     }
+  };
+
+  const handleDeleteUser = async (id) => {
+    console.log(filteredUsers);
+    try {
+      await deleteUser(id); // Attempt to delete user
+      setErrorMessage(""); // Clear any previous error messages
+    } catch (error) {
+      // Handle specific error cases
+      if (error.status === 404) {
+        setErrorMessage("User not found. Unable to delete.");
+      } else if (error.status === 500) {
+        setErrorMessage("Server error. Please try again later.");
+      } else {
+        setErrorMessage("An unexpected error occurred. Please try again.");
+      }
+    }
+  };
+
+  const changeToTime = (timestamp) => {
+    const date = new Date(timestamp); // Convert timestamp to Date object
+
+    // Format time with options
+    const timeString = date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "numeric",
+      hour12: true,
+    });
+    return timeString;
   };
 
   const filteredUsers = usernames.filter((user) =>
@@ -230,7 +260,6 @@ const ChatApp = () => {
         <List>
           {filteredUsers.map((contact) => (
             <ListItem
-              button
               key={contact.username}
               onClick={() => handleContactClick(contact)}
             >
@@ -238,64 +267,91 @@ const ChatApp = () => {
                 <Avatar>{contact.username[0]}</Avatar>
               </ListItemAvatar>
               <ListItemText primary={contact.username} />
+              <DeleteIcon
+                onClick={() => handleDeleteUser(contact.username)} // Invoke handleDeleteUser with user ID
+                style={{
+                  cursor: "pointer",
+                  color: "red",
+                }}
+              />
             </ListItem>
           ))}
         </List>
       </Box>
 
       {/* Chat Window */}
-      <Box flex="1" display="flex" flexDirection="column">
-        {/* Chat Header */}
-        <Box p={2} borderBottom="1px solid #e0e0e0" bgcolor="#ffffff">
-          <Typography variant="h6">
-            Chat with {selectedContact?.username || "Unknown"}
-          </Typography>
-        </Box>
+      {selectedContact && (
+        <Box flex="1" display="flex" flexDirection="column">
+          {/* Chat Header */}
+          <Box p={2} borderBottom="1px solid #e0e0e0" bgcolor="#ffffff">
+            <Typography variant="h6">
+              Chat with {selectedContact?.username || "Unknown"}
+            </Typography>
+          </Box>
 
-        {/* Messages */}
-        <Box flex="1" p={2} bgcolor="#e5ddd5" overflow="auto">
-          {messages.map((message, index) => (
-            <Paper
-              key={index}
-              sx={{
-                padding: 1,
-                marginBottom: 2,
-                alignSelf:
-                  message.sender._id === loggedInUser.userId
-                    ? "flex-end"
-                    : "flex-start",
-                backgroundColor:
-                  message.sender._id === loggedInUser.userId
-                    ? "#DCF8C6"
-                    : "#FFFFFF",
-              }}
-            >
-              <Typography variant="body1">{message.content}</Typography>
-              <Typography variant="caption" color="textSecondary">
-                {message.sender.username}
-              </Typography>
-            </Paper>
-          ))}
-        </Box>
-
-        {/* Message Input */}
-        <Box display="flex" p={2} borderTop="1px solid #e0e0e0">
-          <TextField
-            fullWidth
-            placeholder="Type a message..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-          />
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleSendMessage}
+          {/* Messages */}
+          <Box
+            p={2}
+            bgcolor="#e5ddd5"
+            overflow="auto"
+            sx={{
+              width: "95%",
+              display: "flex",
+              flex: 1,
+              flexDirection: "column",
+              alignSelf: "flex-start",
+            }}
           >
-            Send
-          </Button>
+            {messages.map((message, index) => (
+              <Paper
+                key={index}
+                sx={{
+                  padding: 1,
+                  marginBottom: 2,
+                  width: "30%",
+                  alignSelf:
+                    message.sender._id === loggedInUser.userId
+                      ? "flex-end"
+                      : "flex-start",
+                  backgroundColor:
+                    message.sender._id === loggedInUser.userId
+                      ? "#DCF8C6"
+                      : "#FFFFFF",
+                }}
+              >
+                <Typography variant="body1">{message.content}</Typography>
+                <Box
+                  sx={{
+                    textAlign: "right",
+                  }}
+                >
+                  <Typography variant="caption" color="textSecondary">
+                    {changeToTime(message.timestamp)}
+                  </Typography>
+                </Box>
+              </Paper>
+            ))}
+          </Box>
+
+          {/* Message Input */}
+          <Box display="flex" p={2} borderTop="1px solid #e0e0e0">
+            <TextField
+              fullWidth
+              placeholder="Type a message..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+            />
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleSendMessage}
+            >
+              Send
+            </Button>
+          </Box>
         </Box>
-      </Box>
+      )}
     </Box>
   );
 };
