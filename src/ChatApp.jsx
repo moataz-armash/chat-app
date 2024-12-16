@@ -76,6 +76,7 @@ const ChatApp = () => {
       );
 
       const fetchedMessages = response.data;
+      console.log(chatId);
 
       if (fetchedMessages.length === 0) {
         setHasMoreMessages(false); // No more messages
@@ -133,24 +134,26 @@ const ChatApp = () => {
     console.log("Selected contact:", contact._id);
 
     try {
-      // Step 1: Start or retrieve a chat
-
+      // Start or retrieve a chat
       const response = await axios.post("http://localhost:5000/api/start", {
         userId: loggedInUser.userId,
         otherUserId: contact._id,
       });
-      console.log("_id: " + response.data._id);
-      const { _id: chatId } = response.data;
-      setChatId(chatId);
-      setSelectedContact(contact);
 
-      // Step 2: Fetch the first page of messages
-      setMessages([]); // Clear previous messages
-      setHasMoreMessages(true); // Reset load more state
-      await fetchMessages(chatId); // Fetch the first page
+      const { _id: chatId, messages } = response.data; // Get chatId and decrypted messages
+
+      setChatId(chatId); // Set the active chat ID
+      setSelectedContact(contact); // Set the selected contact
+      setMessages(messages || []); // Load previous messages, default to an empty array
+      setHasMoreMessages(messages.length > 0); // Set load more state based on existing messages
     } catch (error) {
-      console.error("Error starting or retrieving the chat:", error);
-      setErrorMessage("Unable to start or retrieve the chat.");
+      console.error(
+        "Error starting or retrieving the chat:",
+        error.response?.data || error.message
+      );
+      setErrorMessage(
+        error.response?.data?.error || "An unexpected error occurred."
+      );
     }
   };
 
@@ -211,22 +214,40 @@ const ChatApp = () => {
     return timeString;
   };
 
+  //get username from localstorage
+  const localStorageUser = localStorage.getItem("user");
+  const loggedInUsername = JSON.parse(localStorageUser)?.username;
+
   const filteredUsers = usernames.filter((user) =>
     user.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
   return (
     <Box display="flex" height="100vh" bgcolor="#f0f2f5">
       {/* Sidebar */}
       <Box width="30%" bgcolor="#ffffff" borderRight="1px solid #e0e0e0">
         <Box
-          p={2}
+          p={1}
           borderBottom="1px solid #e0e0e0"
           display="flex"
           justifyContent="space-between"
           alignItems="center"
         >
-          <Typography variant="h6">{loggedInUser.username}'s Chats</Typography>
+          <Avatar
+            src={
+              loggedInUser.image
+                ? `http://localhost:5000${loggedInUser.image}`
+                : "https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.istockphoto.com%2Fphotos%2Fuser-profile&psig=AOvVaw3DTpajCCzaXWAAa1U_Dyxv&ust=1734443825823000&source=images&cd=vfe&opi=89978449&ved=0CBQQjRxqFwoTCNiu_va4rIoDFQAAAAAdAAAAABAE"
+            }
+            alt={loggedInUsername.username}
+            sx={{
+              width: 50,
+              height: 50,
+              border: "2px solid #5F54FD",
+            }}
+          />
+          <Typography variant="h6">
+            {loggedInUsername ? `${loggedInUsername}'s Chats` : "Loading..."}
+          </Typography>
           <Button
             variant="contained"
             sx={{ backgroundColor: "#5F54FD" }}
@@ -286,7 +307,20 @@ const ChatApp = () => {
               onClick={() => handleContactClick(contact)}
             >
               <ListItemAvatar>
-                <Avatar>{contact.username[0]}</Avatar>
+                <Avatar
+                  src={
+                    loggedInUser.image
+                      ? `http://localhost:5000${loggedInUser.image}`
+                      : "https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.istockphoto.com%2Fphotos%2Fuser-profile&psig=AOvVaw3DTpajCCzaXWAAa1U_Dyxv&ust=1734443825823000&source=images&cd=vfe&opi=89978449&ved=0CBQQjRxqFwoTCNiu_va4rIoDFQAAAAAdAAAAABAE"
+                  }
+                  alt={loggedInUsername.username}
+                  sx={{
+                    width: 50,
+                    height: 50,
+                    marginRight: 2,
+                    border: "2px solid #5F54FD",
+                  }}
+                />
               </ListItemAvatar>
               <ListItemText primary={contact.username} />
               <DeleteIcon

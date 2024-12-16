@@ -32,12 +32,11 @@ const LoginPage = () => {
         formData
       );
 
-      const { userId, username, token } = response.data; // Extract user data from the response
-
+      const { image, userId, username, token } = response.data; // Extract user data from the response
       // Save user data to localStorage
-      const userData = { userId, username, token };
+      const userData = { userId, username, image, token };
       localStorage.setItem("user", JSON.stringify(userData));
-      console.log(userData)
+      console.log(userData);
 
       // Update the AuthContext state
       login(userData);

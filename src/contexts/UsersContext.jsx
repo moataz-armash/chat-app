@@ -14,7 +14,7 @@ export const UsersProvider = ({ children }) => {
     return savedContacts ? JSON.parse(savedContacts) : [];
   });
 
-  const [loggedInUser, setLoggedInUser] = useState(() => {
+  const [loggedInUser] = useState(() => {
     const user = localStorage.getItem("user");
     return user ? JSON.parse(user) : null;
   });

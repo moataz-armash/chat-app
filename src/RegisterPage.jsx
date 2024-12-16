@@ -1,13 +1,23 @@
 import React, { useState } from "react";
-import { Box, TextField, Button, Typography, Container } from "@mui/material";
+import {
+  Box,
+  TextField,
+  Button,
+  Typography,
+  Container,
+  Avatar,
+  IconButton,
+} from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import PhotoCamera from "@mui/icons-material/PhotoCamera";
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
     username: "",
     email: "",
     password: "",
+    image: null, // For storing the uploaded image
   });
   const navigate = useNavigate();
 
@@ -16,13 +26,30 @@ const RegisterPage = () => {
     setFormData({ ...formData, [name]: value });
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    setFormData({ ...formData, image: file });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const form = new FormData();
+      form.append("username", formData.username);
+      form.append("email", formData.email);
+      form.append("password", formData.password);
+      if (formData.image) {
+        form.append("image", formData.image);
+      }
+
       const response = await axios.post(
         "http://localhost:5000/api/register",
-        formData
+        form,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
       );
+
       console.log("Registration successful:", response.data);
       navigate("/login");
     } catch (error) {
@@ -32,12 +59,68 @@ const RegisterPage = () => {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box mt={5}>
-        <Typography variant="h4" gutterBottom>
+    <Container maxWidth="sm" sx={{ marginTop: "50px" }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: "30px",
+          backgroundColor: "#fff",
+          boxShadow: "0 8px 15px rgba(0, 0, 0, 0.1)",
+          borderRadius: "10px",
+        }}
+      >
+        <Avatar
+          sx={{
+            width: "100px",
+            height: "100px",
+            marginBottom: "20px",
+            backgroundColor: "#5F54FD",
+          }}
+        >
+          {formData.image ? (
+            <img
+              src={URL.createObjectURL(formData.image)}
+              alt="Uploaded"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                borderRadius: "50%",
+              }}
+            />
+          ) : (
+            <Typography variant="h5" sx={{ color: "#fff" }}>
+              R
+            </Typography>
+          )}
+        </Avatar>
+        <IconButton
+          component="label"
+          sx={{
+            backgroundColor: "#5F54FD",
+            color: "#fff",
+            "&:hover": { backgroundColor: "#4b46db" },
+            marginBottom: "20px",
+          }}
+        >
+          <PhotoCamera />
+          <input
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={handleFileChange}
+          />
+        </IconButton>
+        <Typography
+          variant="h4"
+          gutterBottom
+          sx={{ fontWeight: "bold", color: "#333" }}
+        >
           Register
         </Typography>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} style={{ width: "100%" }}>
           <TextField
             fullWidth
             margin="normal"
@@ -70,8 +153,16 @@ const RegisterPage = () => {
           <Button
             type="submit"
             variant="contained"
-            sx={{ backgroundColor: "#5F54FD" }}
             fullWidth
+            sx={{
+              backgroundColor: "#5F54FD",
+              color: "#fff",
+              marginTop: "20px",
+              padding: "10px 0",
+              fontSize: "16px",
+              fontWeight: "bold",
+              "&:hover": { backgroundColor: "#4b46db" },
+            }}
           >
             Register
           </Button>
