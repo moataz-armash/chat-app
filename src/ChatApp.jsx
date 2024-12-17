@@ -22,10 +22,11 @@ import { InputAdornment } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import axios from "axios";
 import { useUsers } from "./contexts/UsersContext";
+import { useContacts } from "./contexts/ContactsContext";
 
 const ChatApp = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [username, setUsername] = useState("");
+  // const [username, setUsername] = useState("");
 
   const [messages, setMessages] = useState([]);
   const [page, setPage] = useState(1);
@@ -44,6 +45,13 @@ const ChatApp = () => {
     setErrorMessage,
   } = useUsers();
 
+  const {
+    handleAddContact,
+    contacts,
+    newContactUsername,
+    setNewContactUsername,
+    handleDeleteContact,
+  } = useContacts();
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -71,29 +79,36 @@ const ChatApp = () => {
 
   const fetchMessages = async (chatId) => {
     try {
+      // Fetch paginated messages
       const response = await axios.get(
         `http://localhost:5000/api/${chatId}/messages?page=${page}&limit=20`
       );
 
-      const fetchedMessages = response.data;
-      console.log(chatId);
+      const { messages = [], hasMore = false } = response.data; // Extract messages and hasMore flag
+      // console.log("Fetched Messages:", messages);
 
-      if (fetchedMessages.length === 0) {
-        setHasMoreMessages(false); // No more messages
+      if (messages.length === 0) {
+        setHasMoreMessages(false); // No more messages to load
       } else {
-        // Avoid duplicates
+        // Avoid duplicate messages
         setMessages((prevMessages) => {
-          const messageIds = prevMessages.map((msg) => msg._id);
-          const newMessages = fetchedMessages.filter(
-            (msg) => !messageIds.includes(msg._id)
+          const messageIds = new Set(prevMessages.map((msg) => msg._id)); // Use Set for efficient lookups
+          const newMessages = messages.filter(
+            (msg) => !messageIds.has(msg._id)
           );
-          return [...newMessages, ...prevMessages];
+          return [...newMessages, ...prevMessages]; // Add new messages to the top
         });
+        setHasMoreMessages(hasMore); // Update "load more" state
         setPage((prevPage) => prevPage + 1); // Increment page
       }
     } catch (error) {
-      console.error("Error fetching messages:", error);
-      setErrorMessage("Unable to fetch messages.");
+      console.error(
+        "Error fetching messages:",
+        error.response?.data || error.message
+      );
+      setErrorMessage(
+        error.response?.data?.error || "Unable to fetch messages."
+      );
     }
   };
 
@@ -127,7 +142,7 @@ const ChatApp = () => {
 
   const handleOpenModal = () => setIsModalOpen(true);
   const handleCloseModal = () => setIsModalOpen(false);
-  const handleUsernameChange = (e) => setUsername(e.target.value);
+  const handleUsernameChange = (e) => setNewContactUsername(e.target.value);
 
   const handleContactClick = async (contact) => {
     console.log("loggedInUser:", loggedInUser.userId);
@@ -140,67 +155,47 @@ const ChatApp = () => {
         otherUserId: contact._id,
       });
 
-      const { _id: chatId, messages } = response.data; // Get chatId and decrypted messages
+      // Destructure response data with fallbacks
+      const { _id: chatId, messages = [] } = response.data || {};
 
+      // Log success
+      console.log("Chat started or retrieved:", { chatId, messages });
+
+      // Update state
       setChatId(chatId); // Set the active chat ID
       setSelectedContact(contact); // Set the selected contact
-      setMessages(messages || []); // Load previous messages, default to an empty array
-      setHasMoreMessages(messages.length > 0); // Set load more state based on existing messages
+      setMessages(messages); // Load previous messages
+      setHasMoreMessages(messages.length > 0); // Determine if there are messages to load
     } catch (error) {
       console.error(
         "Error starting or retrieving the chat:",
         error.response?.data || error.message
       );
+
+      // Set a user-friendly error message
       setErrorMessage(
-        error.response?.data?.error || "An unexpected error occurred."
+        error.response?.data?.error ||
+          "An unexpected error occurred while starting the chat."
       );
     }
   };
 
-  const handleAddUsername = async () => {
-    try {
-      await addUser(username); // Try to add the username
-      setUsername(""); // Clear input field
-      setErrorMessage(""); // Clear any error messages
-      setIsModalOpen(false); // Close modal
-    } catch (error) {
-      // Handle specific errors returned by addUser or unexpected issues
-      if (error.status === 404) {
-        // User not found in the database
-        setErrorMessage("User not found in the database.");
-      } else if (error.status === 200) {
-        // User is already in participants or custom message from addUser
-        setErrorMessage(
-          error.message || "This user is already in your participants."
-        );
-      } else if (error.status === 400) {
-        // Invalid username format
-        setErrorMessage("Invalid username. Please provide a valid one.");
-      } else {
-        // Handle any unexpected errors
-        setErrorMessage(
-          "An unexpected error occurred. Please try again later."
-        );
-      }
-    }
-  };
-
-  const handleDeleteUser = async (id) => {
-    console.log(filteredUsers);
-    try {
-      await deleteUser(id); // Attempt to delete user
-      setErrorMessage(""); // Clear any previous error messages
-    } catch (error) {
-      // Handle specific error cases
-      if (error.status === 404) {
-        setErrorMessage("User not found. Unable to delete.");
-      } else if (error.status === 500) {
-        setErrorMessage("Server error. Please try again later.");
-      } else {
-        setErrorMessage("An unexpected error occurred. Please try again.");
-      }
-    }
-  };
+  // const handleDeleteUser = async (id) => {
+  //   console.log(filteredUsers);
+  //   try {
+  //     await deleteUser(id); // Attempt to delete user
+  //     setErrorMessage(""); // Clear any previous error messages
+  //   } catch (error) {
+  //     // Handle specific error cases
+  //     if (error.status === 404) {
+  //       setErrorMessage("User not found. Unable to delete.");
+  //     } else if (error.status === 500) {
+  //       setErrorMessage("Server error. Please try again later.");
+  //     } else {
+  //       setErrorMessage("An unexpected error occurred. Please try again.");
+  //     }
+  //   }
+  // };
 
   const changeToTime = (timestamp) => {
     const date = new Date(timestamp); // Convert timestamp to Date object
@@ -267,8 +262,8 @@ const ChatApp = () => {
                 label="Username"
                 type="text"
                 fullWidth
-                value={username}
-                onChange={handleUsernameChange}
+                value={newContactUsername}
+                onChange={(e) => setNewContactUsername(e.target.value)}
               />
               {errorMessage && (
                 <DialogContentText color="error">
@@ -280,8 +275,8 @@ const ChatApp = () => {
               <Button onClick={handleCloseModal} color="primary">
                 Cancel
               </Button>
-              <Button onClick={handleAddUsername} color="primary">
-                Add User
+              <Button onClick={handleAddContact} color="primary">
+                Add Contact
               </Button>
             </DialogActions>
           </Dialog>
@@ -301,7 +296,7 @@ const ChatApp = () => {
           }}
         />
         <List>
-          {filteredUsers.map((contact) => (
+          {contacts?.map((contact) => (
             <ListItem
               key={contact.username}
               onClick={() => handleContactClick(contact)}
@@ -324,7 +319,7 @@ const ChatApp = () => {
               </ListItemAvatar>
               <ListItemText primary={contact.username} />
               <DeleteIcon
-                onClick={() => handleDeleteUser(contact.username)} // Invoke handleDeleteUser with user ID
+                onClick={() => handleDeleteContact(contact._id)} // Invoke handleDeleteUser with user ID
                 style={{
                   cursor: "pointer",
                   color: "red",

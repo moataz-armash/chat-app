@@ -9,6 +9,8 @@ export const useUsers = () => {
 };
 
 export const UsersProvider = ({ children }) => {
+  const [contacts, setContacts] = useState();
+
   const [usernames, setUsernames] = useState(() => {
     const savedContacts = localStorage.getItem("contacts");
     return savedContacts ? JSON.parse(savedContacts) : [];
@@ -18,6 +20,8 @@ export const UsersProvider = ({ children }) => {
     const user = localStorage.getItem("user");
     return user ? JSON.parse(user) : null;
   });
+
+ 
 
   const [socket, setSocket] = useState(null);
 
