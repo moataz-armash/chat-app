@@ -15,6 +15,7 @@ export const ContactsProvider = ({ children }) => {
   const [newContactUsername, setNewContactUsername] = useState("");
 
   const fetchContacts = async () => {
+    console.log(loggedInUser);
     try {
       const response = await axios.get(
         `http://localhost:5000/api/user/${loggedInUser.userId}/contacts`
@@ -54,7 +55,9 @@ export const ContactsProvider = ({ children }) => {
       });
       fetchContacts(); // Refresh the contact list
     } catch (error) {
-      setErrorMessage(error.response?.data?.error || "Failed to delete contact.");
+      setErrorMessage(
+        error.response?.data?.error || "Failed to delete contact."
+      );
     }
   };
 

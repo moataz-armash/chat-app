@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Typography,
@@ -26,6 +26,9 @@ import { useContacts } from "./contexts/ContactsContext";
 
 const ChatApp = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const messagesEndRef = useRef(null); // To handle automatic scrolling
+  const messagesContainerRef = useRef(null); // To attach scroll listener
   // const [username, setUsername] = useState("");
 
   const [messages, setMessages] = useState([]);
@@ -69,6 +72,28 @@ const ChatApp = () => {
   }, [socket]);
 
   useEffect(() => {
+    const handleScroll = () => {
+      if (
+        messagesContainerRef.current.scrollTop === 0 && // Check if at the top
+        hasMoreMessages // Ensure there are more messages to load
+      ) {
+        fetchMessages(chatId); // Fetch more messages
+      }
+    };
+
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.addEventListener("scroll", handleScroll);
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener("scroll", handleScroll);
+      }
+    };
+  }, [chatId, hasMoreMessages]);
+
+  useEffect(() => {
     if (chatId) {
       setPage(1); // Reset to first page
       setHasMoreMessages(true); // Reset pagination state
@@ -77,6 +102,12 @@ const ChatApp = () => {
     }
   }, [chatId]);
 
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
   const fetchMessages = async (chatId) => {
     try {
       // Fetch paginated messages
@@ -84,7 +115,7 @@ const ChatApp = () => {
         `http://localhost:5000/api/${chatId}/messages?page=${page}&limit=20`
       );
 
-      const { messages = [], hasMore = false } = response.data; // Extract messages and hasMore flag
+      const { messages: fetchedMessages = [], hasMore = false } = response.data; // Extract messages and hasMore flag
       // console.log("Fetched Messages:", messages);
 
       if (messages.length === 0) {
@@ -93,7 +124,7 @@ const ChatApp = () => {
         // Avoid duplicate messages
         setMessages((prevMessages) => {
           const messageIds = new Set(prevMessages.map((msg) => msg._id)); // Use Set for efficient lookups
-          const newMessages = messages.filter(
+          const newMessages = fetchedMessages.filter(
             (msg) => !messageIds.has(msg._id)
           );
           return [...newMessages, ...prevMessages]; // Add new messages to the top
@@ -229,7 +260,7 @@ const ChatApp = () => {
         >
           <Avatar
             src={
-              loggedInUser.image
+              loggedInUser?.image
                 ? `http://localhost:5000${loggedInUser.image}`
                 : "https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.istockphoto.com%2Fphotos%2Fuser-profile&psig=AOvVaw3DTpajCCzaXWAAa1U_Dyxv&ust=1734443825823000&source=images&cd=vfe&opi=89978449&ved=0CBQQjRxqFwoTCNiu_va4rIoDFQAAAAAdAAAAABAE"
             }
@@ -304,11 +335,11 @@ const ChatApp = () => {
               <ListItemAvatar>
                 <Avatar
                   src={
-                    loggedInUser.image
-                      ? `http://localhost:5000${loggedInUser.image}`
+                    contact.image
+                      ? `http://localhost:5000${contact.image}`
                       : "https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.istockphoto.com%2Fphotos%2Fuser-profile&psig=AOvVaw3DTpajCCzaXWAAa1U_Dyxv&ust=1734443825823000&source=images&cd=vfe&opi=89978449&ved=0CBQQjRxqFwoTCNiu_va4rIoDFQAAAAAdAAAAABAE"
                   }
-                  alt={loggedInUsername.username}
+                  alt={contact.username}
                   sx={{
                     width: 50,
                     height: 50,
@@ -342,6 +373,7 @@ const ChatApp = () => {
 
           {/* Messages */}
           <Box
+            ref={messagesContainerRef}
             p={2}
             bgcolor="#e5ddd5"
             overflow="auto"
@@ -382,6 +414,7 @@ const ChatApp = () => {
                 </Box>
               </Paper>
             ))}
+            <div ref={messagesEndRef}></div>
           </Box>
 
           {/* Message Input */}
