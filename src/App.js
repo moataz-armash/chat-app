@@ -1,31 +1,26 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import RegisterPage from "./RegisterPage";
-import LoginPage from "./LoginPage";
-import ChatApp from "./ChatApp";
-import { UsersProvider } from "./contexts/UsersContext";
-import { ContactsProvider } from "./contexts/ContactsContext";
-import { AuthProvider } from "./contexts/AuthContext"; // Ensure the path is correct
-import PrivateRoute from "./components/PrivateRoute"; // Import the PrivateRoute component
-
+import "./App.css";
+// import PrivateRoute from "./components/PrivateRoute"; // Import the PrivateRoute component
+import HomePage from "./Pages/HomePage";
+import ChatPage from "./Pages/ChatPage";
+import LoginPage from "./Pages/LoginPage";
+import ChatProvider from "./Context/ChatProvider";
 const App = () => {
   return (
-    <UsersProvider>
-      <ContactsProvider>
-        <AuthProvider>
-          <Router>
-            <Routes>
-              <Route path="/" element={<RegisterPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route
-                path="/chat"
-                element={<PrivateRoute element={<ChatApp />} />}
-              />
-            </Routes>
-          </Router>
-        </AuthProvider>
-      </ContactsProvider>
-    </UsersProvider>
+    <Router>
+      <ChatProvider>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/chats" element={<ChatPage />} />
+          {/* <Route
+            path="/chats"
+            element={<PrivateRoute element={<ChatPage />} />}
+            /> */}
+        </Routes>
+      </ChatProvider>
+    </Router>
   );
 };
 
