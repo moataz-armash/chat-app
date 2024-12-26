@@ -200,7 +200,6 @@ const SideDrawer = () => {
           <IconButton color="inherit" onClick={handleMenuOpen}>
             <Avatar src={user.pic} alt={user.name} />
           </IconButton>
-          <Button onClick={handleClick}>Open Menu</Button>
           <Menu
             anchorEl={anchorEl}
             open={Boolean(anchorEl)}
