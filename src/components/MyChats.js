@@ -21,6 +21,7 @@ const MyChats = ({ fetchAgain }) => {
       };
 
       const { data } = await axios.get("/api/chat", config);
+      console.log(data);
       setChats(data);
     } catch (error) {
       console.error("Failed to Load the chats");
